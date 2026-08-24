@@ -19,14 +19,21 @@ const server = http.createServer(app);
 // Initialize WebSockets
 initSocket(server, clientOrigin);
 
-// Security & Parsing Middleware
-app.use(helmet());
+// Security Middleware (Configured to allow viewing uploaded evidence files cross-origin)
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  })
+);
+
+// CORS Middleware
 app.use(
   cors({
-    origin: clientOrigin || ['http://localhost:3000', 'http://localhost:5173'],
+    origin: clientOrigin || '*',
     credentials: true,
   })
 );
+
 app.use(express.json());
 
 // Serve Static Uploads Folder
@@ -34,6 +41,11 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Database Connection
 connectDB();
+
+// Root Route
+app.get('/', (req, res) => {
+  res.status(200).json({ message: 'CRC Cyber Incident Response API is Live' });
+});
 
 // API Endpoint Routes
 app.use('/api/auth', authRoutes);
@@ -46,7 +58,8 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'CRC Backend API Running' });
 });
 
-// Start Server
-server.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+// Start Server (Binds dynamically to Render's PORT or fallback)
+const PORT = process.env.PORT || port || 5000;
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
