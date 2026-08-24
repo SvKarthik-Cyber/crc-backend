@@ -1,5 +1,6 @@
 const express = require('express');
 const http = require('http');
+const path = require('path');
 const cors = require('cors');
 const helmet = require('helmet');
 const connectDB = require('./src/config/db');
@@ -15,7 +16,6 @@ const advisoryRoutes = require('./src/routes/advisories.routes');
 const app = express();
 const server = http.createServer(app);
 
-// Initialize Socket.io
 initSocket(server, clientOrigin);
 
 // Security & Parsing Middleware
@@ -27,6 +27,9 @@ app.use(
   })
 );
 app.use(express.json());
+
+// Serve Static Uploads Folder
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Database Connection
 connectDB();
@@ -42,7 +45,6 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'CRC Backend API Running' });
 });
 
-// Start HTTP Server with Socket.io Enabled
 server.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });

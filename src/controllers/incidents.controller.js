@@ -2,16 +2,19 @@ const Incident = require('../models/Incident');
 
 exports.createIncident = async (req, res) => {
   try {
-    const { category, description, evidenceFiles, severity, district } = req.body;
+    const { category, description, severity, district } = req.body;
+
+    // Map uploaded file paths if files exist in request
+    const evidenceFiles = req.files ? req.files.map((file) => `/uploads/${file.filename}`) : [];
 
     const incident = await Incident.create({
       reportedBy: req.user.id,
       category,
       description,
-      evidenceFiles: evidenceFiles || [],
+      evidenceFiles,
       severity,
       district,
-      timeline: [{ status: 'new', note: 'Incident reported', actorId: req.user.id }],
+      timeline: [{ status: 'new', note: 'Incident reported with evidence', actorId: req.user.id }],
     });
 
     res.status(201).json({ message: 'Incident submitted successfully', incident });
