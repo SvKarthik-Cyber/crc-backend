@@ -43,3 +43,58 @@ exports.getIncidentById = async (req, res) => {
     res.status(500).json({ message: 'Error retrieving incident', error: error.message });
   }
 };
+
+// --- NEW FUNCTIONS FOR ADMIN / VOLUNTEERS ---
+
+// Get all incidents with optional query filters (category, district, severity, status)
+exports.getAllIncidents = async (req, res) => {
+  try {
+    const { category, district, severity, status } = req.query;
+    const filter = {};
+
+    if (category) filter.category = category;
+    if (district) filter.district = district;
+    if (severity) filter.severity = severity;
+    if (status) filter.status = status;
+
+    const incidents = await Incident.find(filter)
+      .populate('reportedBy', 'name email role')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({ count: incidents.length, incidents });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to retrieve incidents', error: error.message });
+  }
+};
+
+// Update incident status and push new state into the timeline array
+exports.updateIncidentStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, note } = req.body;
+
+    const incident = await Incident.findByIdAndUpdate(
+      id,
+      {
+        $set: { status },
+        $push: {
+          timeline: {
+            status,
+            note: note || `Status updated to ${status}`,
+            actorId: req.user.id,
+            at: new Date(),
+          },
+        },
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!incident) {
+      return res.status(404).json({ message: 'Incident not found' });
+    }
+
+    res.status(200).json({ message: 'Incident status updated successfully', incident });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to update incident status', error: error.message });
+  }
+};
