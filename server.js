@@ -4,12 +4,13 @@ const helmet = require('helmet');
 const connectDB = require('./src/config/db');
 const { port, clientOrigin } = require('./src/config/env');
 
-// Import Route Handlers
+// Route Imports
 const authRoutes = require('./src/routes/auth.routes');
+const incidentsRoutes = require('./src/routes/incidents.routes');
 
 const app = express();
 
-// Security & Parsing Middleware[cite: 1]
+// Security & Parsing Middleware
 app.use(helmet());
 app.use(
   cors({
@@ -19,18 +20,19 @@ app.use(
 );
 app.use(express.json());
 
-// Connect to MongoDB[cite: 1]
+// Database Connection
 connectDB();
 
-// API Endpoint Routes[cite: 1]
+// API Endpoint Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/incidents', incidentsRoutes);
 
-// Server Health Check Route
+// Health Check Route
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'CRC Backend API Running' });
 });
 
-// Start Server
+// Start Express Server
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
