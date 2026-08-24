@@ -16,13 +16,14 @@ const advisoryRoutes = require('./src/routes/advisories.routes');
 const app = express();
 const server = http.createServer(app);
 
+// Initialize WebSockets
 initSocket(server, clientOrigin);
 
 // Security & Parsing Middleware
 app.use(helmet());
 app.use(
   cors({
-    origin: clientOrigin,
+    origin: clientOrigin || ['http://localhost:3000', 'http://localhost:5173'],
     credentials: true,
   })
 );
@@ -45,6 +46,7 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'CRC Backend API Running' });
 });
 
+// Start Server
 server.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
