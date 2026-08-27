@@ -10,7 +10,7 @@ const {
   forwardToAdvisory,
   approvePoliceVerification,
   forceChangePassword,
-} = require('../controllers/authController');
+} = require('../controllers/auth.controller');
 
 // Public Registration Routes (Protected by Rate Limiter)
 router.post('/register/organization', authLimiter, registerOrganization);
