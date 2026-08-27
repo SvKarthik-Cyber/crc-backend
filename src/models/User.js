@@ -4,7 +4,7 @@ const userSchema = new mongoose.Schema(
   {
     role: {
       type: String,
-      enum: ['organization', 'volunteer', 'individual'],
+      enum: ['organization', 'volunteer', 'individual', 'admin', 'advisory', 'police'],
       required: true,
     },
     name: { type: String, required: true },
@@ -12,7 +12,22 @@ const userSchema = new mongoose.Schema(
     mobile: { type: String, required: true },
     passwordHash: { type: String, required: true },
     district: { type: String, required: true },
+    
+    // Multi-Step Verification Pipeline
     isVerified: { type: Boolean, default: false },
+    verificationStatus: {
+      type: String,
+      enum: [
+        'NOT_REQUIRED',
+        'PENDING_ADVISORY',
+        'PENDING_POLICE_VERIFICATION',
+        'APPROVED_TEMPORARY',
+        'ACTIVE',
+        'REJECTED'
+      ],
+      default: 'NOT_REQUIRED'
+    },
+    mustChangePassword: { type: Boolean, default: false },
 
     // Role-specific embedded profiles
     orgProfile: {
@@ -30,6 +45,7 @@ const userSchema = new mongoose.Schema(
     },
     individualProfile: {
       occupation: String,
+      cvUrl: String, // Store CV link for advisory & police checks
     },
   },
   { timestamps: true }

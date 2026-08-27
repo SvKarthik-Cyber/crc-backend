@@ -2,26 +2,36 @@ const mongoose = require('mongoose');
 
 const incidentSchema = new mongoose.Schema(
   {
-    reportedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    category: { type: String, required: true },
-    description: { type: String, required: true },
-    evidenceFiles: [{ type: String }],
-    severity: { type: String, enum: ['low', 'medium', 'high', 'critical'], default: 'medium' },
-    district: { type: String, required: true },
+    referenceNumber: {
+      type: String,
+      required: true,
+      unique: true,
+      uppercase: true,
+      trim: true,
+    },
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    title: {
+      type: String,
+      required: [true, 'Incident title is required'],
+      trim: true,
+    },
+    description: {
+      type: String,
+      required: [true, 'Incident description is required'],
+    },
+    category: {
+      type: String,
+      required: true,
+    },
     status: {
       type: String,
-      enum: ['new', 'assigned', 'in_progress', 'closed'],
-      default: 'new',
+      enum: ['PENDING', 'UNDER_REVIEW', 'RESOLVED', 'REJECTED'],
+      default: 'PENDING',
     },
-    assignedAnalyst: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
-    timeline: [
-      {
-        status: String,
-        note: String,
-        actorId: mongoose.Schema.Types.ObjectId,
-        at: { type: Date, default: Date.now },
-      },
-    ],
   },
   { timestamps: true }
 );

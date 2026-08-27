@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { jwtSecret } = require('../config/env');
+const { jwtAccessSecret } = require('../config/env');
 
 // Verify JWT token middleware
 const authenticateToken = (req, res, next) => {
@@ -10,11 +10,22 @@ const authenticateToken = (req, res, next) => {
     return res.status(401).json({ message: 'Access token missing' });
   }
 
-  jwt.verify(token, jwtSecret || process.env.JWT_SECRET, (err, user) => {
+  jwt.verify(token, jwtAccessSecret, (err, user) => {
     if (err) {
       return res.status(403).json({ message: 'Invalid or expired token' });
     }
+
     req.user = user;
+
+    // Guard: Block API access if user must change their temporary password first
+    const isChangePasswordRoute = req.path.includes('/change-password');
+    if (req.user.mustChangePassword && !isChangePasswordRoute) {
+      return res.status(403).json({
+        message: 'Access denied. You must update your temporary password before proceeding.',
+        mustChangePassword: true,
+      });
+    }
+
     next();
   });
 };

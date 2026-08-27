@@ -1,100 +1,60 @@
+const crypto = require('crypto');
 const Incident = require('../models/Incident');
 
+// Generate unique reference number (e.g., CRC-9B4F12)
+const generateReferenceNumber = () => {
+  const randomHex = crypto.randomBytes(3).toString('hex').toUpperCase();
+  return `CRC-${randomHex}`;
+};
+
+// Create a new incident report with an auto-generated reference number
 exports.createIncident = async (req, res) => {
   try {
-    const { category, description, severity, district } = req.body;
+    const { title, description, category } = req.body;
 
-    // Map uploaded file paths if files exist in request
-    const evidenceFiles = req.files ? req.files.map((file) => `/uploads/${file.filename}`) : [];
+    let referenceNumber = generateReferenceNumber();
+    
+    // Ensure reference number uniqueness in case of collision
+    let existing = await Incident.findOne({ referenceNumber });
+    while (existing) {
+      referenceNumber = generateReferenceNumber();
+      existing = await Incident.findOne({ referenceNumber });
+    }
 
     const incident = await Incident.create({
-      reportedBy: req.user.id,
-      category,
+      referenceNumber,
+      user: req.user.id,
+      title,
       description,
-      evidenceFiles,
-      severity,
-      district,
-      timeline: [{ status: 'new', note: 'Incident reported with evidence', actorId: req.user.id }],
+      category,
     });
 
-    res.status(201).json({ message: 'Incident submitted successfully', incident });
+    res.status(201).json({
+      message: 'Incident reported successfully.',
+      referenceNumber: incident.referenceNumber,
+      status: incident.status,
+      incident,
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to report incident', error: error.message });
+    res.status(500).json({ message: 'Failed to submit incident report', error: error.message });
   }
 };
 
-exports.getMyIncidents = async (req, res) => {
+// Track incident by reference number
+exports.getIncidentByReference = async (req, res) => {
   try {
-    const incidents = await Incident.find({ reportedBy: req.user.id }).sort({ createdAt: -1 });
-    res.status(200).json({ incidents });
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch incidents', error: error.message });
-  }
-};
-
-exports.getIncidentById = async (req, res) => {
-  try {
-    const incident = await Incident.findOne({ _id: req.params.id, reportedBy: req.user.id });
-    if (!incident) {
-      return res.status(404).json({ message: 'Incident not found' });
-    }
-    res.status(200).json({ incident });
-  } catch (error) {
-    res.status(500).json({ message: 'Error retrieving incident', error: error.message });
-  }
-};
-
-// --- NEW FUNCTIONS FOR ADMIN / VOLUNTEERS ---
-
-// Get all incidents with optional query filters (category, district, severity, status)
-exports.getAllIncidents = async (req, res) => {
-  try {
-    const { category, district, severity, status } = req.query;
-    const filter = {};
-
-    if (category) filter.category = category;
-    if (district) filter.district = district;
-    if (severity) filter.severity = severity;
-    if (status) filter.status = status;
-
-    const incidents = await Incident.find(filter)
-      .populate('reportedBy', 'name email role')
-      .sort({ createdAt: -1 });
-
-    res.status(200).json({ count: incidents.length, incidents });
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to retrieve incidents', error: error.message });
-  }
-};
-
-// Update incident status and push new state into the timeline array
-exports.updateIncidentStatus = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status, note } = req.body;
-
-    const incident = await Incident.findByIdAndUpdate(
-      id,
-      {
-        $set: { status },
-        $push: {
-          timeline: {
-            status,
-            note: note || `Status updated to ${status}`,
-            actorId: req.user.id,
-            at: new Date(),
-          },
-        },
-      },
-      { new: true, runValidators: true }
+    const { refNum } = req.params;
+    const incident = await Incident.findOne({ referenceNumber: refNum.toUpperCase() }).populate(
+      'user',
+      'name email mobile'
     );
 
     if (!incident) {
-      return res.status(404).json({ message: 'Incident not found' });
+      return res.status(404).json({ message: 'No incident found with that reference number.' });
     }
 
-    res.status(200).json({ message: 'Incident status updated successfully', incident });
+    res.status(200).json({ incident });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to update incident status', error: error.message });
+    res.status(500).json({ message: 'Error retrieving incident details', error: error.message });
   }
 };
