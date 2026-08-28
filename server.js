@@ -19,10 +19,18 @@ const server = http.createServer(app);
 // Security Middleware
 app.use(helmet());
 
-// CORS Middleware
+// Dynamic CORS Middleware (Supports Render + Frontend Cloudflare Tunnels)
+const allowedOrigins = [clientOrigin, 'http://localhost:5173', 'http://localhost:3000'].filter(Boolean);
+
 app.use(
   cors({
-    origin: clientOrigin || '*',
+    origin: (origin, callback) => {
+      // Allow non-browser requests (Postman, curl) or matching origins
+      if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.trycloudflare.com')) {
+        return callback(null, true);
+      }
+      return callback(new Error('Blocked by CORS policy'));
+    },
     credentials: true,
   })
 );
