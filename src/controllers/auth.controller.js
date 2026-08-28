@@ -3,7 +3,6 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const { generateTokens } = require('../utils/tokens');
 
-// Helper to register user
 const registerUser = async (req, res, role, profileKey) => {
   try {
     const { email, password, name, mobile, district, [profileKey]: profileData } = req.body;
@@ -16,7 +15,6 @@ const registerUser = async (req, res, role, profileKey) => {
     const salt = await bcrypt.genSalt(12);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    // Set status: individuals require advisory review; others default to ACTIVE
     const verificationStatus = (role === 'individual') ? 'PENDING_ADVISORY' : 'ACTIVE';
     const isVerified = role !== 'individual';
 
@@ -33,7 +31,6 @@ const registerUser = async (req, res, role, profileKey) => {
       [profileKey]: profileData,
     });
 
-    // If pending background check, return confirmation without full login tokens
     if (role === 'individual') {
       return res.status(201).json({
         message: 'Registration submitted successfully. Account pending advisory review.',
@@ -67,7 +64,6 @@ exports.registerOrganization = (req, res) => registerUser(req, res, 'organizatio
 exports.registerVolunteer = (req, res) => registerUser(req, res, 'volunteer', 'volunteerProfile');
 exports.registerIndividual = (req, res) => registerUser(req, res, 'individual', 'individualProfile');
 
-// Login Handler
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -77,7 +73,6 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    // Block access for unapproved states
     if (['PENDING_ADVISORY', 'PENDING_POLICE_VERIFICATION'].includes(user.verificationStatus)) {
       return res.status(403).json({ 
         message: 'Account pending background verification. You cannot log in yet.' 
@@ -115,7 +110,6 @@ exports.login = async (req, res) => {
   }
 };
 
-// 1. Admin/Advisory Step: Forward profile to Police
 exports.forwardToAdvisory = async (req, res) => {
   try {
     const { userId } = req.body;
@@ -134,7 +128,6 @@ exports.forwardToAdvisory = async (req, res) => {
   }
 };
 
-// 2. Police Step: Pass verification & issue OTP / Temp Password
 exports.approvePoliceVerification = async (req, res) => {
   try {
     const { userId } = req.body;
@@ -144,7 +137,6 @@ exports.approvePoliceVerification = async (req, res) => {
       return res.status(400).json({ message: 'User is not pending police verification.' });
     }
 
-    // Generate random 12-char OTP temporary password
     const tempPassword = crypto.randomBytes(6).toString('hex');
     const salt = await bcrypt.genSalt(12);
     user.passwordHash = await bcrypt.hash(tempPassword, salt);
@@ -156,18 +148,17 @@ exports.approvePoliceVerification = async (req, res) => {
 
     res.status(200).json({
       message: 'Police verification approved. OTP issued.',
-      temporaryPassword: tempPassword // Transmitted securely to user via email/SMS in production
+      temporaryPassword: tempPassword
     });
   } catch (error) {
     res.status(500).json({ message: 'Approval failed', error: error.message });
   }
 };
 
-// 3. Mandatory First-Login Password Change
 exports.forceChangePassword = async (req, res) => {
   try {
     const { newPassword } = req.body;
-    const userId = req.user.id; // Extracted from decoded JWT auth middleware
+    const userId = req.user.id;
 
     const user = await User.findById(userId);
     if (!user || !user.mustChangePassword) {

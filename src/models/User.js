@@ -45,7 +45,7 @@ const userSchema = new mongoose.Schema(
     },
     individualProfile: {
       occupation: String,
-      cvUrl: String, // Store CV link for advisory & police checks
+      cvUrl: String,
     },
   },
   { timestamps: true }
