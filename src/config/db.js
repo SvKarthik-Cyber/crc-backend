@@ -2,11 +2,11 @@ const mongoose = require('mongoose');
 
 const connectDB = async () => {
   try {
-    // Read from process.env with direct string fallback for local development
-    const uri = process.env.MONGODB_URI || 'mongodb+srv://karthikpanicker9999_db_user:5lmiNiE8ZIMUdrEK@cluster0.qldjn0x.mongodb.net/crc_db?retryWrites=true&w=majority&appName=Cluster0';
+    // Check both common variable naming conventions
+    const uri = process.env.MONGO_URI || process.env.MONGODB_URI;
 
     if (!uri) {
-      throw new Error("MONGODB_URI environment variable is missing.");
+      throw new Error("Neither MONGO_URI nor MONGODB_URI is defined in your environment variables.");
     }
 
     const conn = await mongoose.connect(uri);
