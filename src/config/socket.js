@@ -1,4 +1,7 @@
 const { Server } = require('socket.io');
+const { registerChatSocket } = require('../sockets/chat.socket');
+const { registerNotifySocket } = require('../sockets/notify.socket');
+const { registerOpsSocket } = require('../sockets/ops.socket');
 
 let io;
 
@@ -22,6 +25,10 @@ const initSocket = (server, clientOrigin) => {
       console.log(`Client disconnected: ${socket.id}`);
     });
   });
+
+  registerChatSocket(io);
+  registerNotifySocket(io);
+  registerOpsSocket(io);
 
   return io;
 };

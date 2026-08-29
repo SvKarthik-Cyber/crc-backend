@@ -7,4 +7,7 @@ const generateTokens = (payload) => {
   return { accessToken, refreshToken };
 };
 
-module.exports = { generateTokens };
+// Verifies a refresh token and returns its decoded payload, or throws.
+const verifyRefreshToken = (token) => jwt.verify(token, jwtRefreshSecret);
+
+module.exports = { generateTokens, verifyRefreshToken };

@@ -2,76 +2,80 @@ const bcrypt = require('bcryptjs');
 const Admin = require('../models/Admin');
 const Incident = require('../models/Incident');
 const { generateTokens } = require('../utils/tokens');
+const { asyncHandler } = require('../middleware/errorHandler');
+const { notifyIncidentStatusChange } = require('./notifications.controller');
 
-exports.adminLogin = async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    const admin = await Admin.findOne({ email });
+exports.adminLogin = asyncHandler(async (req, res) => {
+  const { email, password } = req.body;
+  const admin = await Admin.findOne({ email });
 
-    if (!admin) {
-      return res.status(401).json({ message: 'Invalid admin credentials' });
-    }
-
-    const isMatch = await bcrypt.compare(password, admin.passwordHash);
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid admin credentials' });
-    }
-
-    const tokens = generateTokens({ id: admin._id, role: admin.role, isAdmin: true });
-
-    res.status(200).json({
-      message: 'Admin login successful',
-      admin: { id: admin._id, name: admin.name, email: admin.email, role: admin.role },
-      ...tokens,
-    });
-  } catch (error) {
-    res.status(500).json({ message: 'Admin login failed', error: error.message });
+  if (!admin) {
+    return res.status(401).json({ message: 'Invalid admin credentials' });
   }
-};
 
-exports.getAllIncidents = async (req, res) => {
-  try {
-    const { status, severity, district } = req.query;
-    const filter = {};
-
-    if (status) filter.status = status;
-    if (severity) filter.severity = severity;
-    if (district) filter.district = district;
-
-    const incidents = await Incident.find(filter)
-      .populate('reportedBy', 'name email mobile role district')
-      .populate('assignedAnalyst', 'name email role')
-      .sort({ createdAt: -1 });
-
-    res.status(200).json({ incidents });
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch incidents', error: error.message });
+  const isMatch = await bcrypt.compare(password, admin.passwordHash);
+  if (!isMatch) {
+    return res.status(401).json({ message: 'Invalid admin credentials' });
   }
-};
 
-exports.updateIncidentStatus = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status, note, assignedAnalystId } = req.body;
+  const tokens = generateTokens({
+    id: admin._id,
+    role: admin.role,
+    name: admin.name,
+    isAdmin: true,
+  });
 
-    const incident = await Incident.findById(id);
-    if (!incident) {
-      return res.status(404).json({ message: 'Incident not found' });
-    }
+  res.status(200).json({
+    message: 'Admin login successful',
+    admin: { id: admin._id, name: admin.name, email: admin.email, role: admin.role },
+    ...tokens,
+  });
+});
 
-    if (status) incident.status = status;
-    if (assignedAnalystId) incident.assignedAnalyst = assignedAnalystId;
+// NOTE: this previously referenced `reportedBy`, `assignedAnalyst`, and
+// `severity`, none of which exist on the Incident model (see
+// CRC-integration-audit.md section 3) - fixed to use the model's real
+// fields (`user`, `category`) and the actor-snapshot `timeline.updatedBy`
+// shape from models/Incident.js.
+exports.getAllIncidents = asyncHandler(async (req, res) => {
+  const { status, category, district } = req.query;
+  const filter = {};
 
-    incident.timeline.push({
-      status: status || incident.status,
-      note: note || `Status updated to ${status}`,
-      actorId: req.user.id,
-      at: new Date(),
-    });
+  if (status) filter.status = status;
+  if (category) filter.category = category;
+  if (district) filter.district = district;
 
-    await incident.save();
-    res.status(200).json({ message: 'Incident updated successfully', incident });
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to update incident', error: error.message });
+  const incidents = await Incident.find(filter)
+    .populate('user', 'name email mobile role district')
+    .sort({ createdAt: -1 });
+
+  res.status(200).json({ count: incidents.length, incidents });
+});
+
+exports.updateIncidentStatus = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { status, note } = req.body;
+
+  const incident = await Incident.findById(id);
+  if (!incident) {
+    return res.status(404).json({ message: 'Incident not found' });
   }
-};
+
+  if (status) incident.status = status;
+
+  incident.timeline.push({
+    status: status || incident.status,
+    note: note || `Status updated to ${status}`,
+    updatedBy: {
+      id: req.user.id,
+      name: req.user.name || 'Admin',
+      role: req.user.role,
+    },
+  });
+
+  await incident.save();
+
+  await notifyIncidentStatusChange(incident);
+
+  res.status(200).json({ message: 'Incident updated successfully', incident });
+});

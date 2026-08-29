@@ -1,5 +1,11 @@
 const mongoose = require('mongoose');
 
+// `updatedBy` is a denormalized snapshot rather than a ref, because status
+// updates can come from either the `User` collection (staff roles
+// admin/volunteer/police/advisory via /api/v1/incidents) or the separate
+// `Admin` collection (via /api/v1/staff). A single ObjectId ref can only
+// safely `.populate()` one collection, so we capture name/role at write time
+// instead. See CRC-integration-audit.md section 3 for the bug this fixes.
 const timelineSchema = new mongoose.Schema(
   {
     status: {
@@ -7,9 +13,9 @@ const timelineSchema = new mongoose.Schema(
       required: true,
     },
     updatedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
+      id: { type: mongoose.Schema.Types.ObjectId, required: true },
+      name: { type: String, required: true },
+      role: { type: String, required: true },
     },
     note: {
       type: String,
